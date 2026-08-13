@@ -14,6 +14,42 @@ const db = mysql.createPool({
   database: process.env.DB_NAME
 }).promise();
 
+// Function to convert 12-hour to 24-hour format
+function convertTo24Hour(time) {
+  if (!time) return time;
+  
+  const [timePart, period] = time.split(/(am|pm)/i);
+  let [hours, minutes] = timePart.trim().split(':');
+  
+  hours = parseInt(hours);
+  minutes = minutes || '00';
+  
+  if (period.toLowerCase() === 'pm' && hours !== 12) {
+    hours += 12;
+  } else if (period.toLowerCase() === 'am' && hours === 12) {
+    hours = 0;
+  }
+  
+  return `${String(hours).padStart(2, '0')}:${minutes}:00`;
+}
+
+// Function to convert 24-hour to 12-hour format
+function convertTo12Hour(time) {
+  if (!time) return time;
+  
+  const [hours, minutes] = time.split(':');
+  let hour = parseInt(hours);
+  const period = hour >= 12 ? 'pm' : 'am';
+  
+  if (hour > 12) {
+    hour -= 12;
+  } else if (hour === 0) {
+    hour = 12;
+  }
+  
+  return `${hour}:${minutes}${period}`;
+}
+
 // ── Auth ──────────────────────────────────────────────────────
 app.post('/login', async (req, res) => {
   try {
@@ -32,7 +68,6 @@ app.post('/register', async (req, res) => {
     const { name, email, password, phone, role } = req.body;
     const [existing] = await db.query('SELECT id FROM users WHERE email = ?', [email]);
     if (existing.length > 0) return res.status(400).json({ error: 'Email already registered.' });
-    // Force role to customer on register — admin must be set manually in DB
     const [result] = await db.query(
       'INSERT INTO users (name, email, password, phone, role) VALUES (?,?,?,?,?)',
       [name, email, password, phone || null, 'customer']
@@ -55,17 +90,65 @@ app.post('/reset-password', async (req, res) => {
 app.get('/reservations', async (req, res) => {
   try {
     const [rows] = await db.query('SELECT * FROM reservations ORDER BY date DESC, time DESC');
-    res.json(rows);
+    
+    // Convert times back to 12-hour format for display
+    const formattedRows = rows.map(row => ({
+      ...row,
+      time: convertTo12Hour(row.time)
+    }));
+    
+    res.json(formattedRows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.post('/reservations', async (req, res) => {
   try {
-    const { guest, guests, date, time, table_id, notes } = req.body;
+    let { guest, guests, date, time, table_id, notes, user_id } = req.body;
+    
+    // Validate required fields
+    if (!guest || !guests || !date || !time) {
+      return res.status(400).json({ error: 'Missing required fields: guest, guests, date, time' });
+    }
+
+    // Convert 12-hour format (8:00pm) to 24-hour format (20:00:00) for storage
+    const time24 = convertTo24Hour(time);
+
     const [result] = await db.query(
-      'INSERT INTO reservations (guest, guests, date, time, table_id, notes, status) VALUES (?,?,?,?,?,?,?)',
-      [guest, guests, date, time, table_id || null, notes || null, 'pending']
+      'INSERT INTO reservations (guest, guests, date, time, table_id, notes, status, user_id) VALUES (?,?,?,?,?,?,?,?)',
+      [guest, guests, date, time24, table_id || null, notes || null, 'pending', user_id || null]
     );
+
+    // Notification for ADMIN (user_id IS NULL means all admins see it)
+    try {
+      await db.query(
+        'INSERT INTO notifications (title, message, type, is_read, user_id) VALUES (?,?,?,0,NULL)',
+        [
+          'New Reservation',
+          `${guest} requested a table for ${guests} guest(s) on ${date} at ${time}.`,
+          'reservation'
+        ]
+      );
+    } catch (notifErr) {
+      console.error('Failed to create admin notification:', notifErr.message);
+    }
+
+    // Notification for CUSTOMER (specific to the user who made the reservation)
+    if (user_id) {
+      try {
+        await db.query(
+          'INSERT INTO notifications (title, message, type, is_read, user_id) VALUES (?,?,?,0,?)',
+          [
+            'Reservation Confirmed',
+            `Your reservation for ${guests} guest(s) on ${date} at ${time} is pending confirmation.`,
+            'reservation',
+            user_id
+          ]
+        );
+      } catch (notifErr) {
+        console.error('Failed to create customer notification:', notifErr.message);
+      }
+    }
+
     res.json({ success: true, id: result.insertId });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -91,16 +174,30 @@ app.delete('/reservations/:id', async (req, res) => {
 app.get('/waitlist', async (req, res) => {
   try {
     const [rows] = await db.query('SELECT * FROM waitlist ORDER BY id ASC');
-    res.json(rows);
+    
+    // Convert times back to 12-hour format for display
+    const formattedRows = rows.map(row => ({
+      ...row,
+      time: row.time ? convertTo12Hour(row.time) : null
+    }));
+    
+    res.json(formattedRows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.post('/waitlist', async (req, res) => {
   try {
-    const { name, guests, time, phone } = req.body;
+    let { name, guests, time, phone } = req.body;
+    
+    // Convert time if provided
+    let time24 = null;
+    if (time) {
+      time24 = convertTo24Hour(time);
+    }
+    
     const [result] = await db.query(
-      'INSERT INTO waitlist (name, guests, time, phone) VALUES (?,?,?,?)',
-      [name, guests, time, phone || null]
+      'INSERT INTO waitlist (name, guests, time, phone, status) VALUES (?,?,?,?,?)',
+      [name, guests, time24 || null, phone || null, 'waiting']
     );
     res.json({ success: true, id: result.insertId });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -142,7 +239,21 @@ app.put('/tables/:id', async (req, res) => {
 // ── Notifications ─────────────────────────────────────────────
 app.get('/notifications', async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT * FROM notifications ORDER BY created_at DESC LIMIT 20');
+    const userId = req.query.user_id;
+    let query = 'SELECT * FROM notifications WHERE 1=1';
+    const params = [];
+
+    // If user_id is provided, show:
+    // 1. Notifications for that specific user
+    // 2. Admin notifications (user_id IS NULL) — for admins to see all notifications
+    if (userId) {
+      query += ' AND (user_id = ? OR user_id IS NULL)';
+      params.push(userId);
+    }
+
+    query += ' ORDER BY created_at DESC LIMIT 20';
+    
+    const [rows] = await db.query(query, params);
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

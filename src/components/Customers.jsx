@@ -7,7 +7,7 @@ function initials(name) {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
 }
 
-export default function Customers({ isAdmin }) {
+export default function Customers() {
   const [users, setUsers]   = useState([])
   const [search, setSearch] = useState('')
 
@@ -41,8 +41,7 @@ export default function Customers({ isAdmin }) {
                   <th>Name</th>
                   <th>Email</th>
                   <th>Phone</th>
-                  {/* Only admins see the Role column */}
-                  {isAdmin && <th>Role</th>}
+                  <th>Role</th>
                 </tr>
               </thead>
               <tbody>
@@ -56,7 +55,7 @@ export default function Customers({ isAdmin }) {
                     </td>
                     <td style={{ color: 'var(--text-soft)' }}>{u.email}</td>
                     <td style={{ color: 'var(--text-soft)' }}>{u.phone || '—'}</td>
-                    {isAdmin && <td><span className={`badge badge-${u.role}`}>{u.role}</span></td>}
+                    <td><span className={`badge badge-${u.role}`}>{u.role}</span></td>
                   </tr>
                 ))}
               </tbody>

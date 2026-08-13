@@ -2,15 +2,15 @@ import { useState, useEffect } from 'react'
 
 const API = 'http://localhost:5000'
 
-export default function TableMap({ isAdmin }) {
+export default function TableMap() {
   const [tables, setTables] = useState([])
+  const [selected, setSelected] = useState(null)
 
   useEffect(() => {
     fetch(`${API}/tables`).then(r => r.json()).then(setTables).catch(() => {})
   }, [])
 
   async function toggleStatus(table) {
-    if (!isAdmin) return  // customers cannot change table status
     const next = table.status === 'available' ? 'occupied' : 'available'
     try {
       await fetch(`${API}/tables/${table.id}`, {
@@ -29,7 +29,8 @@ export default function TableMap({ isAdmin }) {
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: 16, marginBottom: 20, alignItems: 'center' }}>
+      {/* Legend */}
+      <div style={{ display: 'flex', gap: 16, marginBottom: 20 }}>
         {[['available', '#2D7A4F', available], ['occupied', '#C0392B', occupied], ['reserved', '#B5860D', reserved]].map(([s, c, n]) => (
           <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
             <div style={{ width: 10, height: 10, borderRadius: '50%', background: c }} />
@@ -37,21 +38,14 @@ export default function TableMap({ isAdmin }) {
             <span style={{ fontWeight: 700, color: 'var(--text)' }}>{n}</span>
           </div>
         ))}
-        {isAdmin && (
-          <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-light)' }}>Click a table to toggle status</span>
-        )}
+        <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-light)' }}>Click a table to toggle status</span>
       </div>
 
       <div className="table-map-grid">
         {tables.length === 0 ? (
           <div className="empty-state" style={{ gridColumn: '1/-1' }}><i className="ti ti-armchair-off" /><p>No tables found</p></div>
         ) : tables.map(t => (
-          <div
-            key={t.id}
-            className={`table-card ${t.status}`}
-            onClick={() => toggleStatus(t)}
-            style={{ cursor: isAdmin ? 'pointer' : 'default' }}
-          >
+          <div key={t.id} className={`table-card ${t.status}`} onClick={() => toggleStatus(t)}>
             <div className="table-icon">{icons[t.type] || '🪑'}</div>
             <div className="table-label">{t.label}</div>
             <div className="table-seats">{t.seats} seats</div>

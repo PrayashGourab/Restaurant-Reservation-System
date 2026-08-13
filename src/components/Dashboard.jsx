@@ -1,4 +1,4 @@
-export default function Dashboard({ reservations, waitlist, notifications, onSetPage }) {
+export default function Dashboard({ reservations, waitlist, notifications, onSetPage, currentUser }) {
   const today = new Date().toISOString().split('T')[0]
   const todayRes  = reservations.filter(r => r.date === today)
   const confirmed = reservations.filter(r => r.status === 'confirmed').length
@@ -8,6 +8,13 @@ export default function Dashboard({ reservations, waitlist, notifications, onSet
   const recent = [...reservations].sort((a, b) => b.id - a.id).slice(0, 5)
 
   const statusClass = s => `badge badge-${s}`
+
+  // Format date helper
+  const formatDate = (dateStr) => {
+    if (!dateStr) return ''
+    const date = new Date(dateStr)
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+  }
 
   const hours = ['12pm','1pm','2pm','3pm','6pm','7pm','8pm','9pm']
   const barData = hours.map(h => ({
@@ -56,37 +63,39 @@ export default function Dashboard({ reservations, waitlist, notifications, onSet
 
       {/* Content grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 20 }}>
-        {/* Recent Reservations */}
-        <div className="card">
-          <div className="card-header">
-            <span className="card-title">Recent Reservations</span>
-            <button className="btn btn-ghost btn-sm" onClick={() => onSetPage('reservations')}>View all</button>
-          </div>
-          <div className="table-wrap">
-            {recent.length === 0 ? (
-              <div className="empty-state"><i className="ti ti-calendar-off" /><p>No reservations yet</p></div>
-            ) : (
-              <table>
-                <thead>
-                  <tr>
-                    <th>Guest</th><th>Date</th><th>Time</th><th>Guests</th><th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recent.map(r => (
-                    <tr key={r.id}>
-                      <td style={{ fontWeight: 600 }}>{r.guest}</td>
-                      <td>{r.date}</td>
-                      <td>{r.time}</td>
-                      <td>{r.guests}</td>
-                      <td><span className={statusClass(r.status)}>{r.status}</span></td>
+        {/* Recent Reservations - ADMIN ONLY */}
+        {currentUser?.role === 'admin' && (
+          <div className="card">
+            <div className="card-header">
+              <span className="card-title">Recent Reservations</span>
+              <button className="btn btn-ghost btn-sm" onClick={() => onSetPage('reservations')}>View all</button>
+            </div>
+            <div className="table-wrap">
+              {recent.length === 0 ? (
+                <div className="empty-state"><i className="ti ti-calendar-off" /><p>No reservations yet</p></div>
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Guest</th><th>Date</th><th>Time</th><th>Guests</th><th>Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+                  </thead>
+                  <tbody>
+                    {recent.map(r => (
+                      <tr key={r.id}>
+                        <td style={{ fontWeight: 600 }}>{r.guest}</td>
+                        <td>{formatDate(r.date)}</td>
+                        <td>{r.time}</td>
+                        <td>{r.guests}</td>
+                        <td><span className={statusClass(r.status)}>{r.status}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Right column */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

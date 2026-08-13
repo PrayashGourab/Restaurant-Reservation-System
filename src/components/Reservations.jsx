@@ -1,8 +1,8 @@
 import { useState } from 'react'
 
-export default function Reservations({ reservations, currentUser, isAdmin, onUpdateStatus, onDelete, onNew }) {
-  const [search, setSearch] = useState('')
-  const [filter, setFilter] = useState('all')
+export default function Reservations({ reservations, currentUser, onUpdateStatus, onDelete, onNew }) {
+  const [search, setSearch]   = useState('')
+  const [filter, setFilter]   = useState('all')
 
   const filtered = reservations.filter(r => {
     const matchSearch = r.guest?.toLowerCase().includes(search.toLowerCase())
@@ -21,7 +21,7 @@ export default function Reservations({ reservations, currentUser, isAdmin, onUpd
             <i className="ti ti-search" />
             <input placeholder="Search guest…" value={search} onChange={e => setSearch(e.target.value)} />
           </div>
-          <select style={{ padding: '8px 12px', borderRadius: 8, border: '1.5px solid var(--cream-deep)', background: 'var(--cream)', fontSize: 13 }} value={filter} onChange={e => setFilter(e.target.value)}>
+          <select className="field" style={{ margin: 0, padding: '8px 12px', width: 'auto' }} value={filter} onChange={e => setFilter(e.target.value)}>
             <option value="all">All Status</option>
             <option value="pending">Pending</option>
             <option value="confirmed">Confirmed</option>
@@ -42,14 +42,8 @@ export default function Reservations({ reservations, currentUser, isAdmin, onUpd
             <table>
               <thead>
                 <tr>
-                  <th>#</th>
-                  <th>Guest</th>
-                  <th>Date</th>
-                  <th>Time</th>
-                  <th>Guests</th>
-                  <th>Table</th>
-                  <th>Status</th>
-                  {isAdmin && <th>Actions</th>}
+                  <th>#</th><th>Guest</th><th>Date</th><th>Time</th><th>Guests</th><th>Table</th><th>Status</th>
+                  {currentUser?.role === 'admin' && <th>Actions</th>}
                 </tr>
               </thead>
               <tbody>
@@ -62,7 +56,7 @@ export default function Reservations({ reservations, currentUser, isAdmin, onUpd
                     <td>{r.guests}</td>
                     <td>{r.table_id ? `T${r.table_id}` : '—'}</td>
                     <td><span className={statusClass(r.status)}>{r.status}</span></td>
-                    {isAdmin && (
+                    {currentUser?.role === 'admin' && (
                       <td>
                         <div style={{ display: 'flex', gap: 6 }}>
                           <select

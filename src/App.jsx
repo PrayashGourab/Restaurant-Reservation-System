@@ -25,6 +25,14 @@ const PAGE_TITLES = {
   settings:      'Settings',
 }
 
+// Helper: today's date as YYYY-MM-DD (used when converting a walk-in waitlist entry into a reservation)
+function todayISO() {
+  const d = new Date()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${mm}-${dd}`
+}
+
 export default function App() {
   const [currentUser, setCurrentUser]     = useState(null)
   const [loginError,  setLoginError]      = useState('')
@@ -39,12 +47,37 @@ export default function App() {
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'staff'
 
   function fetchAll() {
-    fetch(`${API}/reservations`).then(r => r.json()).then(setReservations).catch(() => {})
-    fetch(`${API}/waitlist`).then(r => r.json()).then(setWaitlist).catch(() => {})
-    fetch(`${API}/notifications`).then(r => r.json()).then(setNotifications).catch(() => {})
+    // Fetch reservations
+    fetch(`${API}/reservations`)
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(data => setReservations(Array.isArray(data) ? data : []))
+      .catch(() => {})
+
+    // Fetch waitlist
+    fetch(`${API}/waitlist`)
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(data => setWaitlist(Array.isArray(data) ? data : []))
+      .catch(() => {})
+
+    // Fetch notifications with user_id if logged in
+    let notificationsUrl = `${API}/notifications`
+    if (currentUser?.id) {
+      notificationsUrl += `?user_id=${currentUser.id}`
+    }
+
+    fetch(notificationsUrl)
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(data => setNotifications(Array.isArray(data) ? data : []))
+      .catch(() => {})
   }
 
-  useEffect(() => { if (currentUser) fetchAll() }, [currentUser])
+  // Fetch on login, then keep polling so other sessions' changes show up
+  useEffect(() => {
+    if (!currentUser) return
+    fetchAll()
+    const interval = setInterval(fetchAll, 5000)
+    return () => clearInterval(interval)
+  }, [currentUser])
 
   const unreadCount = notifications.filter(n => !n.is_read).length
 
@@ -58,7 +91,10 @@ export default function App() {
         body: JSON.stringify({ email, password }),
       })
       const data = await res.json()
-      if (data.success) { setCurrentUser(data.user); setLoginError('') }
+      if (data.success) {
+        setCurrentUser(data.user)
+        setLoginError('')
+      }
       else setLoginError(data.error || 'Invalid email or password.')
     } catch {
       setLoginError('Cannot connect to server. Make sure backend is running.')
@@ -66,18 +102,40 @@ export default function App() {
     setLoading(false)
   }
 
-  function handleLogout() { setCurrentUser(null); setPage('dashboard') }
+  function handleLogout() {
+    setCurrentUser(null)
+    setPage('dashboard')
+  }
 
   // ── Reservations ─────────────────────────────────────────────
   async function handleNewReservation(form) {
     try {
-      await fetch(`${API}/reservations`, {
+      const reservationData = {
+        guest: form.guest,
+        guests: form.guests,
+        date: form.date,
+        time: form.time,
+        table_id: form.table_id || null,
+        notes: form.notes || null,
+        user_id: currentUser?.id || null  // IMPORTANT: Send user_id
+      }
+
+      const response = await fetch(`${API}/reservations`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify(reservationData),
       })
-      fetchAll()
-    } catch { alert('Failed to save reservation.') }
+
+      if (response.ok) {
+        fetchAll()
+        setShowModal(false)
+      } else {
+        alert('Failed to save reservation.')
+      }
+    } catch (err) {
+      console.error('Error:', err)
+      alert('Failed to save reservation.')
+    }
   }
 
   async function handleUpdateStatus(id, status) {
@@ -101,6 +159,18 @@ export default function App() {
     } catch { alert('Failed to delete reservation.') }
   }
 
+  // Confirm a pending reservation directly from the Waitlist page
+  async function handleConfirmReservation(id) {
+    if (!isAdmin) return
+    await handleUpdateStatus(id, 'confirmed')
+  }
+
+  // Deny a pending reservation directly from the Waitlist page
+  async function handleDenyReservation(id) {
+    if (!isAdmin) return
+    await handleUpdateStatus(id, 'cancelled')
+  }
+
   // ── Waitlist ─────────────────────────────────────────────────
   async function handleRemoveWaitlist(id) {
     if (!isAdmin) return  // guard — only admin/staff
@@ -108,6 +178,34 @@ export default function App() {
       await fetch(`${API}/waitlist/${id}`, { method: 'DELETE' })
       setWaitlist(prev => prev.filter(w => w.id !== id))
     } catch { alert('Failed to remove from waitlist.') }
+  }
+
+  // Confirm a walk-in waitlist entry: creates a new reservation from it, then removes the waitlist row
+  async function handleConfirmWalkIn(entry) {
+    if (!isAdmin) return
+    try {
+      const reservationData = {
+        guest: entry.name,
+        guests: entry.guests,
+        date: todayISO(),
+        time: entry.time || '7:00pm',
+        table_id: null,
+        notes: 'Converted from waitlist',
+        user_id: null,
+      }
+      const response = await fetch(`${API}/reservations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(reservationData),
+      })
+      if (!response.ok) { alert('Failed to create reservation from waitlist entry.'); return }
+
+      await fetch(`${API}/waitlist/${entry.id}`, { method: 'DELETE' })
+      fetchAll()
+    } catch (err) {
+      console.error('Error:', err)
+      alert('Failed to confirm waitlist entry.')
+    }
   }
 
   // ── Notifications ─────────────────────────────────────────────
@@ -125,13 +223,24 @@ export default function App() {
   const renderPage = () => {
     switch (page) {
       case 'dashboard':
-        return <Dashboard reservations={reservations} waitlist={waitlist} notifications={notifications} onSetPage={setPage} />
+        return <Dashboard reservations={reservations} waitlist={waitlist} notifications={notifications} onSetPage={setPage} currentUser={currentUser} />
       case 'reservations':
         return <Reservations reservations={reservations} currentUser={currentUser} isAdmin={isAdmin} onUpdateStatus={handleUpdateStatus} onDelete={handleDeleteReservation} onNew={() => setShowModal(true)} />
       case 'tables':
         return <TableMap isAdmin={isAdmin} />
       case 'waitlist':
-        return <Waitlist waitlist={waitlist} isAdmin={isAdmin} onRemove={handleRemoveWaitlist} onRefresh={fetchAll} />
+        return (
+          <Waitlist
+            waitlist={waitlist}
+            reservations={reservations}
+            currentUser={currentUser}
+            onRemove={handleRemoveWaitlist}
+            onConfirmReservation={handleConfirmReservation}
+            onDenyReservation={handleDenyReservation}
+            onConfirmWalkIn={handleConfirmWalkIn}
+            onRefresh={fetchAll}
+          />
+        )
       case 'analytics':
         return <Analytics reservations={reservations} waitlist={waitlist} />
       case 'customers':
@@ -141,7 +250,7 @@ export default function App() {
       case 'settings':
         return <Settings currentUser={currentUser} />
       default:
-        return <Dashboard reservations={reservations} waitlist={waitlist} notifications={notifications} onSetPage={setPage} />
+        return <Dashboard reservations={reservations} waitlist={waitlist} notifications={notifications} onSetPage={setPage} currentUser={currentUser} />
     }
   }
 
