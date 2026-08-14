@@ -176,5 +176,5 @@ The video covers:
 
 ## Default Login (seeded)
 
-- **Admin:** `admin@dine` / `admin123``
+- **Admin:** `admin@dine` / admin123
 - **Customer:** `gourab4@.com` / `000000`
