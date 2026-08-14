@@ -165,7 +165,7 @@ dine-app/
 
 ## 🎥 Demo Video
 
-👉 [Watch Project Demo](#) *( https://youtu.be/INQzwqXUKF0?si=GMXHa_ZyrC0FwxCY)*
+👉  *( https://youtu.be/INQzwqXUKF0?si=GMXHa_ZyrC0FwxCY)*
 
 The video covers:
 - A full walkthrough of all functionalities listed above
