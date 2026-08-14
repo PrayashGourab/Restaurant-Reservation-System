@@ -52,21 +52,17 @@ Restaurants often manage reservations, walk-ins, and table availability manually
 
 ### 🔹 UI Screenshots
 
-![Dashboard](https://raw.githubusercontent.com/PrayashGourab/Restaurant-Reservation-System/main/uploads/dashboard.png)
-*Dashboard — overview of reservations, waitlist, notifications, and peak hours*
+![Screenshot](https://raw.githubusercontent.com/PrayashGourab/Restaurant-Reservation-System/main/uploads/ui.png)
 
-![Table Map](https://raw.githubusercontent.com/PrayashGourab/Restaurant-Reservation-System/main/uploads/table-map.png)
-*Table Map — live table status and capacity*
+![Screenshot](https://raw.githubusercontent.com/PrayashGourab/Restaurant-Reservation-System/main/uploads/ui1.png)
 
-![New Reservation](https://raw.githubusercontent.com/PrayashGourab/Restaurant-Reservation-System/main/uploads/new-reservation-modal.png)
-*New Reservation modal — guest name, date, time, guests, table, and notes*
+![Screenshot](https://raw.githubusercontent.com/PrayashGourab/Restaurant-Reservation-System/main/uploads/ui2.png)
 
-![Waitlist](https://raw.githubusercontent.com/PrayashGourab/Restaurant-Reservation-System/main/uploads/waitlist.png)
-*Waitlist — confirm or deny pending walk-in/reservation requests*
+![Screenshot](https://raw.githubusercontent.com/PrayashGourab/Restaurant-Reservation-System/main/uploads/ui3.png)
 
 ### 🔹 ER Diagram
 
-![ER Diagram](https://raw.githubusercontent.com/PrayashGourab/Restaurant-Reservation-System/main/uploads/er-diagram.jpeg)
+![ER Diagram](https://raw.githubusercontent.com/PrayashGourab/Restaurant-Reservation-System/main/uploads/ER%20diagram.png)
 
 ---
 
