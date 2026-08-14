@@ -165,7 +165,7 @@ dine-app/
 
 ## 🎥 Demo Video
 
-👉 [Watch Project Demo](#) *(TODO: paste your video link here)*
+👉 [Watch Project Demo](#) *(TODO: https://youtu.be/INQzwqXUKF0?si=GMXHa_ZyrC0FwxCY)*
 
 The video covers:
 - A full walkthrough of all functionalities listed above
@@ -176,6 +176,5 @@ The video covers:
 
 ## Default Login (seeded)
 
-- **Admin:** `admin@dine` / `admin123`
-- **Staff:** `sarah@dine.com` / `pass123`
-- **Customer:** `james@email.com` / `pass123`
+- **Admin:** `admin@dine` / `admin123``
+- **Customer:** `gourab4@.com` / `000000`
